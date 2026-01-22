@@ -359,7 +359,7 @@ export const AdmissionController = {
             const { applicationId } = req.params;
             const issuerId = req.user.id;
 
-            const result = await AdmissionService.generateAllocationCertificate(applicationId, issuerId);
+            const result = await AdmissionService.generateAllocationCertificate(applicationId as string, issuerId);
             (req as any).logAudit('GUIDE_ALLOCATION_CERT_ISSUED', 'ADMISSION_APPLICATION', applicationId);
 
             return sendResponse(res, 201, true, 'Certificate generated successfully', result);
@@ -371,7 +371,7 @@ export const AdmissionController = {
     getCertificate: async (req: AuthRequest, res: Response) => {
         try {
             const { applicationId } = req.params;
-            const result = await AdmissionService.getCertificateByApplicationId(applicationId);
+            const result = await AdmissionService.getCertificateByApplicationId(applicationId as string);
 
             if (!result) {
                 return sendResponse(res, 404, false, 'Certificate not found');
