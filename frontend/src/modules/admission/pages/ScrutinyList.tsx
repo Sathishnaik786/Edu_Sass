@@ -3,6 +3,7 @@ import { admissionApi } from '../api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
+import { Search } from 'lucide-react';
 
 import { PageHeader } from '@/components/common/PageHeader';
 import { Skeleton } from '@/components/ui/skeleton';
