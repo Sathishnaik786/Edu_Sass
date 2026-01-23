@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 // 1. Fixed Axios Instance with Correct Base URL
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3003/api/admission',
-    timeout: 15000,
+    timeout: 30000,
     headers: {
         'Content-Type': 'application/json'
     }

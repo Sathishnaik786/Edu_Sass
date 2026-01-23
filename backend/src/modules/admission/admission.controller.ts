@@ -6,19 +6,20 @@ import { CANDIDATE_TYPE } from './admission.constants';
 
 export const AdmissionController = {
     createPetApplication: async (req: AuthRequest, res: Response) => {
+        const startTime = Date.now();
         try {
-            console.log('createPetApplication called');
+            console.log(`[REQUEST] POST /api/admission/pet/apply - Start`);
             const payload = req.body;
-            console.log('Payload:', JSON.stringify(payload, null, 2));
             const user = req.user;
-            console.log('User:', user);
 
             // Basic validation
             if (!payload.candidate_type) {
+                console.log(`[WARN] Missing candidate_type. Duration: ${Date.now() - startTime}ms`);
                 return sendResponse(res, 400, false, 'Candidate Type is required.');
             }
 
             if (!payload.personal_details || !payload.academic_details) {
+                console.log(`[WARN] Missing required fields. Duration: ${Date.now() - startTime}ms`);
                 return sendResponse(res, 400, false, 'Missing required fields: personal_details or academic_details');
             }
 
@@ -28,12 +29,15 @@ export const AdmissionController = {
             const auditUser = user ? user.id : 'EXTERNAL_CANDIDATE';
             (req as any).logAudit('PET_APPLICATION_SUBMITTED', 'ADMISSION_APPLICATION', result.id);
 
+            console.log(`[SUCCESS] PET Application submitted. Ref: ${result.reference_number}. Duration: ${Date.now() - startTime}ms`);
+
             return sendResponse(res, 201, true, 'PET Application submitted successfully', {
                 application_id: result.id,
                 reference_number: result.reference_number,
                 status: result.status
             });
         } catch (error: any) {
+            console.error(`[ERROR] POST /api/admission/pet/apply - Failed after ${Date.now() - startTime}ms. Error:`, error);
             return sendResponse(res, 500, false, 'Failed to submit PET application', null, error.message);
         }
     },
