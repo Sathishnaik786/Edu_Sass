@@ -6,14 +6,18 @@ import { Label } from "@/components/ui/label";
 import { admissionApi } from '../api';
 import { useNavigate } from 'react-router-dom';
 
-const ApplyPage: React.FC = () => {
+interface ApplyPageProps {
+    forcedType?: 'INTERNAL' | 'EXTERNAL';
+}
+
+const ApplyPage: React.FC<ApplyPageProps> = ({ forcedType }) => {
     const navigate = useNavigate();
-    const [candidateType, setCandidateType] = useState<'INTERNAL' | 'EXTERNAL' | null>(null);
+    const [candidateType, setCandidateType] = useState<'INTERNAL' | 'EXTERNAL' | null>(forcedType || null);
     const [loading, setLoading] = useState(false);
 
     const [formData, setFormData] = useState({
         // General
-        candidate_type: 'INTERNAL', // default, will update
+        candidate_type: forcedType || 'INTERNAL', // default, will update
         email: '',
         mobile: '',
         identity_document: '',
@@ -131,7 +135,9 @@ const ApplyPage: React.FC = () => {
                 <h2 className="text-3xl font-bold tracking-tight">
                     PET Application ({candidateType})
                 </h2>
-                <Button variant="outline" onClick={() => setCandidateType(null)}>Change Type</Button>
+                {!forcedType && (
+                    <Button variant="outline" onClick={() => setCandidateType(null)}>Change Type</Button>
+                )}
             </div>
 
             <form onSubmit={handleSubmit}>

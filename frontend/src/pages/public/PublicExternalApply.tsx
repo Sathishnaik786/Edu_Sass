@@ -9,7 +9,7 @@ const ExternalApplyPage: React.FC = () => {
         <div className="min-h-screen bg-background flex flex-col">
             <PublicNavbar />
             <main className="flex-1 py-12">
-                <ApplyPage />
+                <ApplyPage forcedType="EXTERNAL" />
             </main>
             <PublicFooter />
         </div>
