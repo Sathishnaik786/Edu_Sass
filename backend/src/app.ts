@@ -6,14 +6,35 @@ const app = express();
 
 // Global Middlewares
 const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-    : ['*'];
+    ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
+    : ["http://localhost:5173"];
 
-app.use(cors({
-    origin: allowedOrigins,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(
+    cors({
+        origin: function (origin, callback) {
+            // Allow server-to-server or curl requests (no origin)
+            if (!origin) return callback(null, true);
+
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+
+            return callback(new Error("Not allowed by CORS"));
+        },
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: [
+            "Content-Type",
+            "Authorization",
+            "X-Requested-With"
+        ],
+        credentials: true,
+        optionsSuccessStatus: 200
+    })
+);
+
+// Explicitly handle OPTIONS preflight for all routes
+app.options("*", cors());
+
 app.use(express.json());
 
 // Debug Logger
