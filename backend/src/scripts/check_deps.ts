@@ -103,7 +103,3 @@ async function runMigration() {
     console.log('Cannot run raw SQL with standard Supabase client without RPC.');
 }
 
-// Actually, I'll check package.json first.
-`;
-
-// I will overwrite this file content with the package.json check first.

@@ -14,7 +14,7 @@ BEGIN
         REFERENCES admission_guide_allocations (application_id)
         ON DELETE CASCADE
         ON UPDATE CASCADE;
-    END IF;
+    END IF;vb 
 END $$;
 
 -- Force PostgREST schema cache reload (Important for Supabase)
