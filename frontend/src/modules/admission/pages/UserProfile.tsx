@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
 const UserProfile: React.FC = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, authRole } = useAuth();
     const navigate = useNavigate();
 
     const handleLogout = async () => {
@@ -37,7 +37,7 @@ const UserProfile: React.FC = () => {
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                                     <Shield className="h-3 w-3" />
-                                    {user?.app_metadata?.role ? user.app_metadata.role.toUpperCase() : 'USER'}
+                                    {authRole || 'NO_ROLE'}
                                 </span>
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
                                     Active

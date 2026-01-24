@@ -12,11 +12,14 @@ import {
     CreditCard,
     User,
     ClipboardCheck,
-    BookOpen
+    BookOpen,
+    UserPlus,
+    CheckCircle2
 } from 'lucide-react';
 
 const adminItems: MenuItem[] = [
     { label: 'Overview', icon: LayoutDashboard, path: '/admission/admin/overview' },
+    { label: 'External Intake', icon: UserPlus, path: '/admission/admin/intake', badge: 'New' },
     { label: 'DRC Dashboard', icon: LayoutDashboard, path: '/admission/overview' },
     { label: 'Scrutiny', icon: Search, path: '/admission/scrutiny' },
     { label: 'Interviews', icon: Users, path: '/admission/interviews' },
@@ -33,7 +36,7 @@ const studentItems: MenuItem[] = [
 ];
 
 const DashboardLayout: React.FC = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, authRole } = useAuth();
     const navigate = useNavigate();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -45,12 +48,30 @@ const DashboardLayout: React.FC = () => {
     // Transform auth user to Navbar user format
     const navbarUser = user ? {
         name: user.email?.split('@')[0] || 'User',
-        role: (user.app_metadata?.role as string) || 'APPLICANT',
+        role: authRole || 'NO_ROLE', // Use DB Role Context
         avatarUrl: user.user_metadata?.avatar_url
     } : undefined;
 
-    const isAdmin = navbarUser?.role === 'admin' || navbarUser?.role === 'superuser';
-    const currentItems = isAdmin ? adminItems : studentItems;
+    // Strict Role Check - No fallbacks
+    const isAdmin = authRole === 'ADMIN' || authRole === 'SUPER_ADMIN';
+    const isDRC = authRole === 'DRC';
+    const isApplicant = authRole === 'APPLICANT';
+
+    // Determined Items based on Role
+    let currentItems: MenuItem[] = [];
+    const isFaculty = authRole === 'FACULTY' || authRole === 'GUIDE';
+
+    const facultyItems: MenuItem[] = [
+        { label: 'Pending Verifications', icon: CheckCircle2, path: '/admission/guide/verification', badge: 'Action' },
+        { label: 'My Scholars', icon: Users, path: '/admission/guide/scholars' },
+        { label: 'Profile', icon: User, path: '/admission/profile' },
+    ];
+
+    if (isAdmin) currentItems = adminItems;
+    else if (isDRC) currentItems = adminItems;
+    else if (isFaculty) currentItems = facultyItems;
+    else if (isApplicant) currentItems = studentItems;
+    // Default empty if NO_ROLE
 
     return (
         <div className="min-h-screen bg-muted/20 flex flex-col">

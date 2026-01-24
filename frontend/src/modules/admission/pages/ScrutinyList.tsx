@@ -18,6 +18,7 @@ const ScrutinyList: React.FC = () => {
             try {
                 const res = await admissionApi.getPendingScrutiny();
                 if (res.success) {
+                    console.log("DRC Scrutiny Data:", res.data);
                     setApplications(res.data);
                 }
             } catch (error) {

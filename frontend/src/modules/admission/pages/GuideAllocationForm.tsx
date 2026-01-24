@@ -14,17 +14,24 @@ const GuideAllocationForm: React.FC = () => {
     const [facultyId, setFacultyId] = useState('');
     const [remarks, setRemarks] = useState('');
 
+    const [guides, setGuides] = useState<any[]>([]);
+
     useEffect(() => {
-        const fetchApp = async () => {
+        const fetchInitialData = async () => {
             if (!id) return;
             try {
-                const res = await admissionApi.getApplicationById(id);
-                if (res.success) setApp(res.data);
+                const [appRes, guidesRes] = await Promise.all([
+                    admissionApi.getApplicationById(id),
+                    admissionApi.getAvailableGuides()
+                ]);
+
+                if (appRes.success) setApp(appRes.data);
+                if (guidesRes.success) setGuides(guidesRes.data);
             } catch (error) {
                 console.error(error);
             }
         };
-        fetchApp();
+        fetchInitialData();
     }, [id]);
 
     const handleAllocate = async (e: React.FormEvent) => {
@@ -51,13 +58,6 @@ const GuideAllocationForm: React.FC = () => {
 
     if (!app) return <div className="p-6">Loading...</div>;
 
-    // Mock Faculty List
-    const facultyList = [
-        { id: 'FAC001', name: 'Dr. Alan Turing' },
-        { id: 'FAC002', name: 'Prof. Grace Hopper' },
-        { id: 'FAC003', name: 'Dr. John von Neumann' },
-    ];
-
     return (
         <div className="p-6 max-w-xl mx-auto space-y-6">
             <h2 className="text-2xl font-bold">Allocate Research Guide</h2>
@@ -79,8 +79,8 @@ const GuideAllocationForm: React.FC = () => {
                                 onChange={(e) => setFacultyId(e.target.value)}
                             >
                                 <option value="">Select a guide...</option>
-                                {facultyList.map(f => (
-                                    <option key={f.id} value={f.id}>{f.name} ({f.id})</option>
+                                {guides.map(g => (
+                                    <option key={g.id} value={g.id}>{g.name} ({g.email})</option>
                                 ))}
                             </select>
                         </div>

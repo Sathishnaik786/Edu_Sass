@@ -43,41 +43,30 @@ const AdminDashboard: React.FC = () => {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const [allAppsRes] = await Promise.all([
-                    admissionApi.getAllApplications()
-                ]);
+                const res = await admissionApi.getAllApplications();
+                if (res.success) {
+                    const apps = res.data || [];
 
-                if (allAppsRes.success) {
-                    const apps = allAppsRes.data || [];
+                    // Calc Stats
+                    const pendingScrutiny = apps.filter((a: any) => a.status === 'SUBMITTED' || a.status === 'UNDER_SCRUTINY').length;
+                    const interviews = apps.filter((a: any) => a.status === 'INTERVIEW_SCHEDULED').length;
+                    const pendingVerif = apps.filter((a: any) => ['FEE_VERIFICATION_PENDING', 'GUIDE_ACCEPTED_BY_APPLICANT'].includes(a.status)).length;
+                    const admitted = apps.filter((a: any) => a.status === 'ADMISSION_CONFIRMED').length;
 
-                    const statusCounts: Record<string, number> = {};
-                    let scrutinyCount = 0;
-                    let interviewCount = 0;
-                    let verificationCount = 0;
-                    let admittedCount = 0;
-
-                    apps.forEach((app: any) => {
-                        const status = app.status || 'UNKNOWN';
-                        statusCounts[status] = (statusCounts[status] || 0) + 1;
-
-                        if (status === 'SUBMITTED' || status === 'SCRUTINY_PENDING') scrutinyCount++;
-                        if (status === 'INTERVIEW_SCHEDULED') interviewCount++;
-                        if (status === 'DOCUMENTS_VERIFIED' || status === 'VERIFICATION_PENDING') verificationCount++;
-                        if (status === 'ADMITTED') admittedCount++;
+                    // Status Counts
+                    const counts: Record<string, number> = {};
+                    apps.forEach((a: any) => {
+                        counts[a.status] = (counts[a.status] || 0) + 1;
                     });
-
-                    const sortedApps = [...apps].sort((a: any, b: any) =>
-                        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-                    ).slice(0, 5);
 
                     setStats({
                         totalApplications: apps.length,
-                        pendingScrutiny: scrutinyCount,
-                        interviewsScheduled: interviewCount,
-                        pendingVerification: verificationCount,
-                        admitted: admittedCount,
-                        recentActivity: sortedApps,
-                        statusCounts
+                        pendingScrutiny,
+                        interviewsScheduled: interviews,
+                        pendingVerification: pendingVerif,
+                        admitted,
+                        recentActivity: apps.slice(0, 10), // Top 10 recent
+                        statusCounts: counts
                     });
                 }
             } catch (error) {
@@ -168,10 +157,20 @@ const AdminDashboard: React.FC = () => {
                                 {stats.recentActivity.map((app) => (
                                     <div key={app.id} className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-lg transition-colors border-b last:border-0 border-border/50">
                                         <div className="flex flex-col gap-1">
-                                            <span className="font-medium text-sm">{app.reference_number}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium text-sm">{app.reference_number}</span>
+                                                {app.candidate_type === 'EXTERNAL' && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">
+                                                        External
+                                                    </span>
+                                                )}
+                                            </div>
                                             <span className="text-xs text-muted-foreground">
                                                 {new Date(app.created_at).toLocaleDateString()} at {new Date(app.created_at).toLocaleTimeString()}
                                             </span>
+                                            {app.candidate_type === 'EXTERNAL' && !app.applicant_id && (
+                                                <span className="text-xs text-blue-600 font-medium">Pending Approval</span>
+                                            )}
                                         </div>
                                         <StatusBadge status={app.status} />
                                     </div>

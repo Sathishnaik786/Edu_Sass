@@ -29,7 +29,7 @@ const AdmissionRoutes: React.FC = () => {
             <Route path="overview" element={<DRCDashboard />} />
             <Route path="admin/overview" element={<AdminDashboard />} />
             <Route path="dashboard" element={<StatusPage />} />
-            <Route path="apply" element={<ApplyPage />} />
+            <Route path="apply" element={<ApplyPage forcedType="INTERNAL" />} />
             <Route path="status" element={<StatusPage />} />
             <Route path="applications" element={<MyApplications />} />
             <Route path="profile" element={<UserProfile />} />

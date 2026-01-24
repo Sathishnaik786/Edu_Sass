@@ -6,6 +6,8 @@ type AuthContextType = {
     session: Session | null;
     user: User | null;
     role: string | null;
+    authRole: string | null; // Explicit JWT Source (Maps to DB Role now)
+    authUserId: string | null;
     loading: boolean;
     login: (email: string, password: string) => Promise<{ error: any }>;
     logout: () => Promise<void>;
@@ -19,28 +21,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [role, setRole] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // Database-Driven Role Resolution
+    const fetchUserRole = async (userId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('iers_user_roles')
+                .select('iers_roles(name)')
+                .eq('user_id', userId)
+                .single();
+
+            if (error || !data) return 'NO_ROLE';
+            // @ts-ignore
+            return data.iers_roles?.name || 'NO_ROLE';
+        } catch (e) {
+            console.error(e);
+            return 'NO_ROLE';
+        }
+    };
+
+    const initializeAuth = async (session: Session | null) => {
+        setLoading(true);
+        setSession(session);
+        const usr = session?.user ?? null;
+        setUser(usr); // Set user immediately
+
+        if (usr) {
+            const dbRole = await fetchUserRole(usr.id);
+            setRole(dbRole);
+        } else {
+            setRole(null);
+        }
+        setLoading(false);
+    };
+
     useEffect(() => {
-        // Check active session
+        // Initial Check
         supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            setRole(session?.user?.user_metadata?.role ?? null);
-            setLoading(false);
+            initializeAuth(session);
         });
 
-        // Listen for changes
+        // Subscription
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            setRole(session?.user?.user_metadata?.role ?? null);
-            setLoading(false);
+            // Re-resolve on every auth change to stay fresh
+            initializeAuth(session);
         });
 
         return () => subscription.unsubscribe();
     }, []);
 
     const login = async (email: string, password: string) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
@@ -48,11 +78,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const logout = async () => {
+        setRole(null);
         await supabase.auth.signOut();
     };
 
     return (
-        <AuthContext.Provider value={{ session, user, role, loading, login, logout }}>
+        <AuthContext.Provider value={{
+            session,
+            user,
+            role,
+            authRole: role,
+            authUserId: user?.id ?? null,
+            loading,
+            login,
+            logout
+        }}>
             {!loading && children}
         </AuthContext.Provider>
     );

@@ -18,6 +18,10 @@ export const AdmissionController = {
                 return sendResponse(res, 400, false, 'Candidate Type is required.');
             }
 
+            if (payload.candidate_type === CANDIDATE_TYPE.EXTERNAL && !payload.auth_credentials?.password) {
+                return sendResponse(res, 400, false, 'External candidates must provide a password.');
+            }
+
             if (!payload.personal_details || !payload.academic_details) {
                 console.log(`[WARN] Missing required fields. Duration: ${Date.now() - startTime}ms`);
                 return sendResponse(res, 400, false, 'Missing required fields: personal_details or academic_details');
@@ -248,6 +252,13 @@ export const AdmissionController = {
 
     getPendingFees: async (req: AuthRequest, res: Response) => {
         try {
+            const { type } = req.query;
+
+            if (type === 'verification') {
+                const result = await AdmissionService.getPendingFeeVerifications();
+                return sendResponse(res, 200, true, 'Pending fee verifications retrieved', result);
+            }
+
             const result = await AdmissionService.getApplicationsEligibleForPayment();
             return sendResponse(res, 200, true, 'Pending fee applications retrieved', result);
         } catch (error: any) {
@@ -419,6 +430,173 @@ export const AdmissionController = {
             return sendResponse(res, 200, true, `Application ${decision}ED successfully`);
         } catch (error: any) {
             return sendResponse(res, 500, false, 'Failed to submit guide confirmation', null, error.message);
+        }
+    },
+
+    getTimeline: async (req: AuthRequest, res: Response) => {
+        try {
+            const { applicationId } = req.params;
+            const result = await AdmissionService.getTimeline(applicationId as string);
+
+            (req as any).logAudit('VIEW_TIMELINE', 'ADMISSION_APPLICATION', applicationId);
+
+            return sendResponse(res, 200, true, 'Timeline retrieved successfully', result);
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to fetch timeline', null, error.message);
+        }
+    },
+
+    // Fee Payment Endpoints (Applicant)
+    initiateFeePayment: async (req: AuthRequest, res: Response) => {
+        try {
+            const { applicationId } = req.body;
+            const userId = req.user.id;
+
+            if (!applicationId) return sendResponse(res, 400, false, 'Application ID is required');
+
+            const result = await AdmissionService.initiateFeePayment(applicationId, userId);
+            (req as any).logAudit('FEE_PAYMENT_INITIATED', 'ADMISSION_APPLICATION', applicationId);
+
+            return sendResponse(res, 201, true, 'Fee payment initiated', result);
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to initiate fee payment', null, error.message);
+        }
+    },
+
+    confirmFeePayment: async (req: AuthRequest, res: Response) => {
+        try {
+            const { applicationId, transactionReference } = req.body;
+            const userId = req.user.id;
+
+            if (!applicationId || !transactionReference) return sendResponse(res, 400, false, 'App ID and Reference required');
+
+            const result = await AdmissionService.confirmFeePayment(applicationId, transactionReference, userId);
+            (req as any).logAudit('FEE_PAYMENT_CONFIRMED', 'ADMISSION_APPLICATION', applicationId);
+
+            return sendResponse(res, 200, true, 'Fee payment confirmed', result);
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to confirm fee payment', null, error.message);
+        }
+    },
+
+    getFeeInfo: async (req: AuthRequest, res: Response) => {
+        try {
+            const { applicationId } = req.params;
+            const result = await AdmissionService.getFeePayment(applicationId as string);
+            return sendResponse(res, 200, true, 'Fee details retrieved', result);
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to fetch fee details', null, error.message);
+        }
+    },
+
+    // Admin/DRC Verification Endpoints
+    verifyFeePayment: async (req: AuthRequest, res: Response) => {
+        try {
+            const { applicationId } = req.params;
+            const { remark } = req.body;
+            const verifierId = req.user.id; // Admin/DRC
+
+            await AdmissionService.verifyFeePayment(applicationId as string, verifierId, remark || '');
+            (req as any).logAudit('FEE_VERIFIED', 'ADMISSION_FEE', applicationId);
+            return sendResponse(res, 200, true, 'Fee payment verified successfully');
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to verify fee', null, error.message);
+        }
+    },
+
+    rejectFeePayment: async (req: AuthRequest, res: Response) => {
+        try {
+            const { applicationId } = req.params;
+            const { remark } = req.body;
+            const verifierId = req.user.id;
+
+            if (!remark) return sendResponse(res, 400, false, 'Remark is mandatory for rejection');
+
+            await AdmissionService.rejectFeePayment(applicationId as string, verifierId, remark);
+            (req as any).logAudit('FEE_REJECTED', 'ADMISSION_FEE', applicationId);
+            return sendResponse(res, 200, true, 'Fee payment rejected successfully');
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to reject fee', null, error.message);
+        }
+    },
+
+    getGuideAllocation: async (req: AuthRequest, res: Response) => {
+        try {
+            const { applicationId } = req.params;
+            const result = await AdmissionService.getGuideAllocation(applicationId as string);
+            return sendResponse(res, 200, true, 'Guide allocation retrieved', result);
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to fetch guide allocation', null, error.message);
+        }
+    },
+
+    acceptGuide: async (req: AuthRequest, res: Response) => {
+        try {
+            const { applicationId, remark } = req.body;
+            const userId = req.user.id;
+
+            if (!applicationId) return sendResponse(res, 400, false, 'Application ID is required');
+
+            await AdmissionService.acceptGuide(applicationId, userId, remark || '');
+            (req as any).logAudit('GUIDE_ACCEPTED', 'ADMISSION_GUIDE', applicationId);
+            return sendResponse(res, 200, true, 'Guide allocation accepted successfully');
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to accept guide', null, error.message);
+        }
+    },
+
+    getGuideAcceptance: async (req: AuthRequest, res: Response) => {
+        try {
+            const { applicationId } = req.params;
+            const result = await AdmissionService.getGuideAcceptance(applicationId as string);
+            return sendResponse(res, 200, true, 'Guide acceptance retrieved', result);
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to fetch guide acceptance', null, error.message);
+        }
+    },
+
+    verifyGuide: async (req: AuthRequest, res: Response) => {
+        try {
+            const { applicationId, remark, status } = req.body;
+            const guideId = req.user.id;
+
+            if (!applicationId || !status) return sendResponse(res, 400, false, 'Missing required fields');
+            if (!['VERIFIED', 'REJECTED'].includes(status)) return sendResponse(res, 400, false, 'Invalid status');
+
+            await AdmissionService.verifyGuide(applicationId, guideId, remark || '', status);
+            (req as any).logAudit('GUIDE_VERIFIED', 'ADMISSION_GUIDE', applicationId);
+            return sendResponse(res, 200, true, 'Guide verification processed successfully');
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to process verification', null, error.message);
+        }
+    },
+
+    getPendingGuideVerifications: async (req: AuthRequest, res: Response) => {
+        try {
+            const guideId = req.user.id;
+            const result = await AdmissionService.getPendingGuideVerifications(guideId);
+            return sendResponse(res, 200, true, 'Pending verifications fetched', result);
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to fetch pending verifications', null, error.message);
+        }
+    },
+
+    getGuideScholars: async (req: AuthRequest, res: Response) => {
+        try {
+            const guideId = req.user.id;
+            const result = await AdmissionService.getGuideScholars(guideId);
+            return sendResponse(res, 200, true, 'Scholars fetched', result);
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to fetch scholars', null, error.message);
+        }
+    },
+
+    getAvailableGuides: async (req: AuthRequest, res: Response) => {
+        try {
+            const guides = await AdmissionService.getAvailableGuides();
+            return sendResponse(res, 200, true, 'Available guides retrieved', guides);
+        } catch (error: any) {
+            return sendResponse(res, 500, false, 'Failed to fetch available guides', null, error.message);
         }
     }
 };

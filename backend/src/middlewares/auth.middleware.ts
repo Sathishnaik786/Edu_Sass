@@ -16,18 +16,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
 
     const token = authHeader.split(' ')[1];
 
-    // DEMO BYPASS: Allow specific mock token
-    if (token === 'mock-jwt-token-phase-3-drc') {
-        req.user = {
-            id: 'd0c9b0e0-5b1e-4c8f-9d3a-1e2f3a4b5c6d', // Valid UUID for Mock DRC
-            email: 'drc@example.com',
-            role: 'authenticated',
-            user_metadata: {
-                role: 'DRC' // Important for RBAC
-            }
-        };
-        return next();
-    }
+    // Strict Auth: No bypasses allowed.
 
     try {
         const { data: { user }, error } = await supabase.auth.getUser(token);
@@ -52,16 +41,7 @@ export const optionalAuthMiddleware = async (req: AuthRequest, res: Response, ne
     if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
 
-        // DEMO BYPASS: Allow specific mock token in optional auth too
-        if (token === 'mock-jwt-token-phase-3-drc') {
-            req.user = {
-                id: 'd0c9b0e0-5b1e-4c8f-9d3a-1e2f3a4b5c6d', // Valid UUID
-                email: 'drc@example.com',
-                role: 'authenticated',
-                user_metadata: { role: 'DRC' }
-            };
-            return next();
-        }
+        // Strict Optional Auth
 
         try {
             const { data: { user }, error } = await supabase.auth.getUser(token);

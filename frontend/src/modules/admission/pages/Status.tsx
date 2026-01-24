@@ -3,15 +3,18 @@ import { admissionApi } from '../api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { PageHeader } from '@/components/common/PageHeader';
 import { StatCard } from '@/components/common/StatCard';
 import { ApplicationTimeline } from '../components/ApplicationTimeline';
-import { FileText, Search, Bell, Clock, ArrowRight, Download, CheckCircle2 } from 'lucide-react';
+import { FileText, Search, Bell, Clock, ArrowRight, Download, CheckCircle2, UserPlus, XCircle } from 'lucide-react';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '../components/StatusBadge';
+import { FeePaymentAction } from '../components/FeePaymentAction';
 
 const StatusPage: React.FC = () => {
     const { user } = useAuth();
@@ -20,6 +23,10 @@ const StatusPage: React.FC = () => {
     const [searchedApp, setSearchedApp] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [certificate, setCertificate] = useState<any>(null);
+    const [guideAllocation, setGuideAllocation] = useState<any>(null);
+    const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
+    const [acceptRemark, setAcceptRemark] = useState('');
+    const [accepting, setAccepting] = useState(false);
 
     useEffect(() => {
         const fetchInternalApps = async () => {
@@ -28,13 +35,16 @@ const StatusPage: React.FC = () => {
                 if (res.success) {
                     setApplications(res.data);
 
-                    // If latest app is GUIDE_ALLOCATED, try to get certificate
+                    // If latest app is GUIDE_ALLOCATED or ACCEPTED, fetch related data
                     const latest = res.data[0];
-                    if (latest && latest.status === 'GUIDE_ALLOCATED') {
-                        const certRes = await admissionApi.getCertificate(latest.id).catch(() => null);
-                        if (certRes && certRes.success) {
-                            setCertificate(certRes.data);
-                        }
+                    if (latest && (latest.status === 'GUIDE_ALLOCATED' || latest.status === 'GUIDE_ACCEPTED_BY_APPLICANT')) {
+                        Promise.all([
+                            admissionApi.getCertificate(latest.id).catch(() => null),
+                            admissionApi.getGuideAllocation(latest.id).catch(() => null)
+                        ]).then(([certRes, allocRes]) => {
+                            if (certRes && certRes.success) setCertificate(certRes.data);
+                            if (allocRes && allocRes.success) setGuideAllocation(allocRes.data);
+                        });
                     }
                 }
             } catch (error) {
@@ -45,6 +55,28 @@ const StatusPage: React.FC = () => {
         };
         fetchInternalApps();
     }, []);
+
+    const handleAcceptGuide = async () => {
+        const latest = applications[0];
+        if (!latest) return;
+
+        setAccepting(true);
+        try {
+            const res = await admissionApi.acceptGuide({
+                applicationId: latest.id,
+                remark: acceptRemark
+            });
+            if (res.success) {
+                alert('Guide Allocation Accepted Successfully!');
+                setAcceptDialogOpen(false);
+                window.location.reload();
+            }
+        } catch (error: any) {
+            alert(error.response?.data?.message || 'Failed to accept guide.');
+        } finally {
+            setAccepting(false);
+        }
+    };
 
     const handleSearch = async () => {
         if (!refNumber) return;
@@ -73,15 +105,32 @@ const StatusPage: React.FC = () => {
                 description="Track your PhD application status and manage your admission journey."
                 actions={
                     <div className="flex gap-3">
+                        {/* New Fee Payment Logic */}
+                        {recentApp?.status === 'DOCUMENTS_VERIFIED' && (
+                            <FeePaymentAction
+                                applicationId={recentApp.id}
+                                onSuccess={() => {
+                                    window.location.reload();
+                                }}
+                            />
+                        )}
+
+                        {recentApp?.status === 'FEE_VERIFICATION_PENDING' && (
+                            <Button disabled variant="outline" className="gap-2 border-amber-200 bg-amber-50 text-amber-700 opacity-100">
+                                <Clock className="h-4 w-4 animate-pulse" /> Payment Verification Pending
+                            </Button>
+                        )}
+
                         {recentApp?.status === 'GUIDE_ALLOCATED' && (
                             <Button
                                 variant="outline"
                                 className="gap-2 border-primary text-primary hover:bg-primary/5 shadow-sm"
                                 onClick={() => {
-                                    if (certificate?.file_url) {
-                                        window.open(certificate.file_url, '_blank');
+                                    const url = certificate?.certificate_url || certificate?.file_url;
+                                    if (url) {
+                                        window.open(url, '_blank');
                                     } else {
-                                        alert('Certificate is being generated. Please check back in a few minutes.');
+                                        alert('Certificate generation in progress. Please refresh in a moment.');
                                     }
                                 }}
                             >
@@ -137,6 +186,97 @@ const StatusPage: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main Content: Recent Application Timeline */}
                 <div className="lg:col-span-2 space-y-6">
+                    {guideAllocation && (
+                        <Card className="border-green-200 bg-green-50">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-green-800">
+                                    <UserPlus className="h-5 w-5" /> Guide Allocated
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p className="font-semibold text-gray-500">Guide Name</p>
+                                        <p className="font-medium text-lg">{guideAllocation.guide?.full_name || 'Faculty Member'}</p>
+                                        <p className="text-xs text-muted-foreground">{guideAllocation.guide?.email}</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-gray-500">Allocated Date</p>
+                                        <p>{new Date(guideAllocation.allocated_at).toLocaleDateString()}</p>
+                                    </div>
+                                    {guideAllocation.allocation_remarks && (
+                                        <div className="col-span-full bg-white/50 p-2 rounded border border-green-100">
+                                            <p className="font-semibold text-gray-500 text-xs">Remarks from Committee</p>
+                                            <p className="text-green-900">{guideAllocation.allocation_remarks}</p>
+                                        </div>
+                                    )}
+                                    {certificate && (
+                                        <div className="col-span-full mt-2 pt-2 border-t border-green-200">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <p className="text-xs font-semibold text-green-800">Allocation Certificate</p>
+                                                    <p className="font-mono text-sm">{certificate.certificate_number || 'Processing...'}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-xs text-muted-foreground">Issued</p>
+                                                    <p className="text-xs font-medium">{certificate.generated_at ? new Date(certificate.generated_at).toLocaleDateString() : 'N/A'}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {recentApp?.status === 'GUIDE_ALLOCATED' && (
+                                        <div className="col-span-full mt-4 pt-4 border-t flex justify-end">
+                                            <Button
+                                                onClick={() => setAcceptDialogOpen(true)}
+                                                className="bg-green-600 hover:bg-green-700 shadow-sm"
+                                            >
+                                                <CheckCircle2 className="mr-2 h-4 w-4" /> Accept Guide Allocation
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {recentApp?.status === 'GUIDE_ACCEPTED_BY_APPLICANT' && (
+                                        <div className="col-span-full mt-4 pt-4 border-t flex justify-end">
+                                            <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800 border border-amber-200 shadow-sm animate-pulse">
+                                                <Clock className="mr-1 h-4 w-4" /> Waiting for Guide Confirmation
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {recentApp?.status === 'ADMISSION_CONFIRMED' && (
+                                        <div className="col-span-full mt-4 pt-4 border-t space-y-2">
+                                            <div className="bg-green-100 border border-green-200 rounded-lg p-4 text-center">
+                                                <h3 className="text-lg font-bold text-green-800 flex items-center justify-center gap-2">
+                                                    <CheckCircle2 className="h-6 w-6" /> Absorption Confirmed!
+                                                </h3>
+                                                <p className="text-green-700 mt-1">
+                                                    Congratulations! Your admission is confirmed. Thank you for taking admission. Next steps will be sent to your registered email or check your dashboard shortly.
+                                                </p>
+                                                <p className="text-xs text-green-600 mt-2 font-mono">
+                                                    Confirmed on: {new Date(recentApp.updated_at).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {recentApp?.status === 'GUIDE_REJECTED' && (
+                                        <div className="col-span-full mt-4 pt-4 border-t">
+                                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                                <h3 className="text-red-800 font-semibold flex items-center gap-2">
+                                                    <XCircle className="h-5 w-5" /> Guide Allocation Rejected
+                                                </h3>
+                                                <div className="mt-2 text-sm text-red-700">
+                                                    The faculty has rejected this allocation. Please contact the DRC for reallocation.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
                     <Card className="h-full border-border shadow-sm">
                         <CardHeader className="pb-3 border-b">
                             {loading ? (
@@ -171,8 +311,7 @@ const StatusPage: React.FC = () => {
                                 </div>
                             ) : recentApp ? (
                                 <ApplicationTimeline
-                                    status={recentApp.status}
-                                    createdAt={recentApp.created_at}
+                                    applicationId={recentApp.id}
                                 />
                             ) : (
                                 <div className="text-center py-12">
@@ -244,7 +383,35 @@ const StatusPage: React.FC = () => {
                     </Card>
                 </div>
             </div>
-        </div>
+
+            <Dialog open={acceptDialogOpen} onOpenChange={setAcceptDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Accept Guide Allocation</DialogTitle>
+                        <DialogDescription>
+                            Confirm your acceptance of the allocated research guide. This action is final.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="remark">Remarks (Optional)</Label>
+                            <Input
+                                id="remark"
+                                placeholder="Any notes..."
+                                value={acceptRemark}
+                                onChange={(e) => setAcceptRemark(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setAcceptDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleAcceptGuide} disabled={accepting} className="bg-green-600 hover:bg-green-700">
+                            {accepting ? 'Processing...' : 'Confirm Acceptance'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div >
     );
 };
 

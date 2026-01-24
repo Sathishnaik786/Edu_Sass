@@ -1,32 +1,38 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.middleware';
 import { sendResponse } from '../utils/response';
+import { resolveUserRole } from '../utils/resolveUserRole';
+import { Role } from '../constants/roles';
 
-export const ROLES = {
-    APPLICANT: 'APPLICANT',
-    DRC: 'DRC',
-    ADMIN: 'ADMIN',
-    SUPER_ADMIN: 'SUPER_ADMIN',
-    FACULTY: 'FACULTY',
-} as const;
-
-export type Role = keyof typeof ROLES;
-
-export const rbacMiddleware = (allowedRoles: Role[]) => {
-    return (req: AuthRequest, res: Response, next: NextFunction) => {
+export const rbacMiddleware = (allowedRoles: string[]) => {
+    return async (req: AuthRequest, res: Response, next: NextFunction) => {
         const user = req.user;
 
         if (!user) {
             return sendResponse(res, 401, false, 'Unauthorized: User not authenticated');
         }
 
-        // Checking app_metadata for role, fallback to user_metadata
-        const userRole = user.app_metadata?.role || user.user_metadata?.role;
+        try {
+            // DATABASE-DRIVEN: Resolve role from DB tables
+            const userRole = await resolveUserRole(user.id);
 
-        if (!userRole || !allowedRoles.includes(userRole as Role)) {
-            return sendResponse(res, 403, false, 'Forbidden: Insufficient permissions');
+            if (!userRole) {
+                console.warn(`[SECURITY] User ${user.id} has no database assigned role.`);
+                return sendResponse(res, 403, false, 'Forbidden: User has no assigned role');
+            }
+
+            if (!allowedRoles.includes(userRole)) {
+                console.warn(`[SECURITY] User ${user.id} with role ${userRole} attempted to access restricted resource.`);
+                return sendResponse(res, 403, false, 'Forbidden: Insufficient permissions');
+            }
+
+            // Attach role to request for controllers if needed
+            (req as any).role = userRole;
+
+            next();
+        } catch (error) {
+            console.error("RBAC Check Failed:", error);
+            return sendResponse(res, 500, false, "Internal Authorization Error");
         }
-
-        next();
     };
 };

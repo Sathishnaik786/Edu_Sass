@@ -10,7 +10,8 @@ import {
     BookOpen,
     GraduationCap,
     ClipboardCheck,
-    FileWarning
+    FileWarning,
+    CreditCard
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,7 +24,8 @@ const DRCDashboard: React.FC = () => {
         evaluationsPending: 0,
         verificationsPending: 0,
         guidesPending: 0,
-        exemptionsPending: 0
+        exemptionsPending: 0,
+        feesPending: 0
     });
     const [loading, setLoading] = useState(true);
 
@@ -36,15 +38,19 @@ const DRCDashboard: React.FC = () => {
                     evalRes,
                     verifyRes,
                     guidesRes,
-                    exemptionRes
+                    exemptionRes,
+                    feesRes
                 ] = await Promise.all([
                     admissionApi.getPendingScrutiny(),
                     admissionApi.getEligibleInterviews(),
                     admissionApi.getPendingEvaluations(),
                     admissionApi.getPendingVerifications(),
                     admissionApi.getPendingGuides(),
-                    admissionApi.getPendingExemptions()
+                    admissionApi.getPendingExemptions(),
+                    admissionApi.getPendingFeeVerifications()
                 ]);
+
+                console.log("DRC Dashboard Scrutiny:", scrutinyRes);
 
                 setStats({
                     scrutinyPending: scrutinyRes.success ? scrutinyRes.data.length : 0,
@@ -52,7 +58,8 @@ const DRCDashboard: React.FC = () => {
                     evaluationsPending: evalRes.success ? evalRes.data.length : 0,
                     verificationsPending: verifyRes.success ? verifyRes.data.length : 0,
                     guidesPending: guidesRes.success ? guidesRes.data.length : 0,
-                    exemptionsPending: exemptionRes.success ? exemptionRes.data.length : 0
+                    exemptionsPending: exemptionRes.success ? exemptionRes.data.length : 0,
+                    feesPending: feesRes.success ? feesRes.data.length : 0
                 });
 
             } catch (error) {
@@ -126,6 +133,16 @@ const DRCDashboard: React.FC = () => {
                                 icon={FileCheck}
                                 description="Final doc checks pending"
                                 className="h-full"
+                            />
+                        </Link>
+
+                        <Link to="/admission/fees/verification" className="block transition-transform hover:scale-[1.02]">
+                            <StatCard
+                                label="Fee Verification"
+                                value={stats.feesPending}
+                                icon={CreditCard}
+                                description="Payments awaiting approval"
+                                className="h-full border-green-200 bg-green-50/30"
                             />
                         </Link>
 

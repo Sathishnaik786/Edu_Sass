@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,8 +34,45 @@ const LoginPage: React.FC = () => {
             setError(loginError.message || 'Invalid email or password');
             setLoading(false);
         } else {
-            // Success - Redirect based on query param or default
-            navigate(redirectPath);
+            // Central Routing Logic (Database Driven)
+            // Fetch Role from DB (iers_user_roles)
+            // Note: We use the session user ID we just got or assume success. 
+            // Better to get session again to be sure of ID.
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (session?.user) {
+                const { data: roleData } = await supabase
+                    .from('iers_user_roles')
+                    .select('iers_roles(name)')
+                    .eq('user_id', session.user.id)
+                    .single();
+
+                // @ts-ignore
+                const dbRole = roleData?.iers_roles?.name || 'NO_ROLE';
+
+                switch (dbRole) {
+                    case 'ADMIN':
+                    case 'SUPER_ADMIN':
+                        navigate('/admission/admin/overview');
+                        break;
+                    case 'DRC':
+                        navigate('/admission/overview');
+                        break;
+                    case 'APPLICANT':
+                        navigate('/admission/dashboard');
+                        break;
+                    case 'FACULTY':
+                    case 'GUIDE':
+                        navigate('/admission/guide/verification');
+                        break;
+                    default:
+                        // Optional: Navigate to a pending page or applicant default if desired, but strict requirement says NO FALLBACK to applicant unless DB says so.
+                        // We will navigate to status as a safe landing or dashboard if they have no role yet (e.g. self-registered applicant might get role via trigger? Trigger logic handles profile, maybe role too?)
+                        // If no role, maybe applicant dashboard is safer?
+                        // The prompt says: "default: navigate('/access-pending')"
+                        navigate('/access-pending');
+                }
+            }
         }
     };
 

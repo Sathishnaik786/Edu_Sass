@@ -66,6 +66,10 @@ export const admissionApi = {
         return api.get(`/applications/${id}`).then(res => res.data);
     },
 
+    getTimeline: async (applicationId: string) => {
+        return api.get(`/applications/${applicationId}/timeline`).then(res => res.data);
+    },
+
     // Scrutiny
     getPendingScrutiny: async () => {
         return api.get('/scrutiny/pending').then(res => res.data);
@@ -111,13 +115,63 @@ export const admissionApi = {
         return api.post(`/fees/${applicationId}/pay`, payload).then(res => res.data);
     },
 
+    // New Fee Payment Flow (Phase-FR-007)
+    initiateFeePayment: async (applicationId: string) => {
+        return api.post('/fee/initiate', { applicationId }).then(res => res.data);
+    },
+
+    confirmFeePayment: async (applicationId: string, transactionReference: string) => {
+        return api.post('/fee/confirm', { applicationId, transactionReference }).then(res => res.data);
+    },
+
+    getFeeInfo: async (applicationId: string) => {
+        return api.get(`/fee/${applicationId}`).then(res => res.data);
+    },
+
     // Guides
+    getAvailableGuides: async () => {
+        return api.get('/guides/available').then(res => res.data);
+    },
+
     getPendingGuides: async () => {
         return api.get('/guides/pending').then(res => res.data);
     },
 
     allocateGuide: async (applicationId: string, payload: any) => {
         return api.post(`/guides/${applicationId}/allocate`, payload).then(res => res.data);
+    },
+
+    getGuideAllocation: async (applicationId: string) => {
+        return api.get(`/guide/${applicationId}`).then(res => res.data);
+    },
+
+    acceptGuide: async (payload: any) => {
+        return api.post('/guide/accept', payload).then(res => res.data);
+    },
+
+    getGuideAcceptance: async (applicationId: string) => {
+        return api.get(`/guide/acceptance/${applicationId}`).then(res => res.data);
+    },
+
+    verifyGuide: async (payload: any) => {
+        return api.post('/guide/verify', payload).then(res => res.data);
+    },
+
+    getPendingGuideVerifications: async () => {
+        return api.get('/guide/pending_verification').then(res => res.data);
+    },
+
+    getGuideScholars: async () => {
+        return api.get('/guide/scholars').then(res => res.data);
+    },
+
+    // Fee Verification (DRC)
+    getPendingFeeVerifications: async () => {
+        return api.get('/fees/pending?type=verification').then(res => res.data);
+    },
+
+    verifyFeePayment: async (payload: { applicationId: string, remark: string }) => {
+        return api.post(`/fee/${payload.applicationId}/verify`, { remark: payload.remark }).then(res => res.data);
     },
 
     getAllApplications: async () => {
@@ -153,5 +207,18 @@ export const admissionApi = {
 
     submitGuideAcceptance: async (applicationId: string, payload: { decision: 'ACCEPT' | 'REJECT', remarks: string }) => {
         return api.post(`/applications/${applicationId}/guide-confirm`, payload).then(res => res.data);
+    },
+
+    // Intake (Admin)
+    getPendingIntake: async () => {
+        return api.get('/intake/pending').then(res => res.data);
+    },
+
+    approveIntake: async (applicationId: string) => {
+        return api.post(`/intake/${applicationId}/approve`).then(res => res.data);
+    },
+
+    rejectIntake: async (applicationId: string) => {
+        return api.post(`/intake/${applicationId}/reject`).then(res => res.data);
     }
 };

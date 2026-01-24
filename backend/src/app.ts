@@ -1,13 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import admissionRoutes from './modules/admission/admission.routes';
+import adminRoutes from './modules/admin/admin.routes';
 
 const app = express();
 
 // Global Middlewares
 const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
-    : ["http://localhost:5173"];
+    : ["http://localhost:5173", "http://localhost:5174"];
 
 app.use(
     cors({
@@ -46,6 +47,7 @@ app.use((req, res, next) => {
 
 // Routes
 app.use('/api/admission', admissionRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {

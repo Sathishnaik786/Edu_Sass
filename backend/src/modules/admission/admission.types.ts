@@ -45,6 +45,10 @@ export interface PetApplicationInput {
         area_of_interest: string;
         proposed_topic?: string;
     };
+    auth_credentials?: {
+        password?: string;
+        encrypted_data?: string;
+    };
     category: string;
     is_exemption_requested: boolean;
 }

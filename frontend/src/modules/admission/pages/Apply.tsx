@@ -43,6 +43,11 @@ const ApplyPage: React.FC<ApplyPageProps> = ({ forcedType }) => {
         is_exemption_requested: false
     });
 
+    const [authDetails, setAuthDetails] = useState({
+        password: '',
+        confirmPassword: ''
+    });
+
     const handleChange = (section: string, field: string, value: any) => {
         setFormData(prev => ({
             ...prev,
@@ -72,20 +77,38 @@ const ApplyPage: React.FC<ApplyPageProps> = ({ forcedType }) => {
 
         try {
             setLoading(true);
-            console.log("Submitting PET application...");
-            console.log("Form Data:", formData);
-            console.log("Candidate Type:", candidateType);
 
+            // Validation for External Candidates
+            if (candidateType === 'EXTERNAL') {
+                if (!authDetails.password || !authDetails.confirmPassword) {
+                    throw new Error("Password is required for account creation");
+                }
+                if (authDetails.password !== authDetails.confirmPassword) {
+                    throw new Error("Passwords do not match");
+                }
+                if (authDetails.password.length < 8) {
+                    throw new Error("Password must be at least 8 characters long");
+                }
+            }
+
+            console.log("Submitting PET application...");
             const isInternal = candidateType === 'INTERNAL';
 
             // Explicit check before API call
             if (!formData.candidate_type) {
-                console.error("Missing candidate_type in formData");
                 throw new Error("Candidate type is missing");
             }
 
+            // Prepare Payload
+            const payload = {
+                ...formData,
+                auth_credentials: candidateType === 'EXTERNAL' ? {
+                    password: authDetails.password
+                } : undefined
+            };
+
             console.log("Calling admissionApi.createPetApplication...");
-            const res = await admissionApi.createPetApplication(formData, isInternal);
+            const res = await admissionApi.createPetApplication(payload, isInternal);
             console.log("API Response:", res);
 
             alert(`Application Submitted! Reference Number: ${res.data.reference_number}`);
@@ -161,6 +184,30 @@ const ApplyPage: React.FC<ApplyPageProps> = ({ forcedType }) => {
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label htmlFor="identity">Identity Document (Aadhaar/Passport)</Label>
                                     <Input id="identity" required value={formData.identity_document} onChange={(e) => handleRootChange('identity_document', e.target.value)} />
+                                </div>
+
+                                {/* Password Setup for External */}
+                                <div className="grid gap-2">
+                                    <Label htmlFor="password">Create Password <span className="text-destructive">*</span></Label>
+                                    <Input
+                                        id="password"
+                                        type="password"
+                                        required
+                                        placeholder="Min 8 characters"
+                                        value={authDetails.password}
+                                        onChange={(e) => setAuthDetails(prev => ({ ...prev, password: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="confirmPassword">Confirm Password <span className="text-destructive">*</span></Label>
+                                    <Input
+                                        id="confirmPassword"
+                                        type="password"
+                                        required
+                                        placeholder="Re-enter password"
+                                        value={authDetails.confirmPassword}
+                                        onChange={(e) => setAuthDetails(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                                    />
                                 </div>
                             </CardContent>
                         </Card>
